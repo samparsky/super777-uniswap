@@ -1,10 +1,9 @@
-// SPDX-License-Identifier: GNU
-pragma solidity >=0.6.2;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.6.2 <0.8.1;
 
 import './IUniswapV2Factory.sol';
 
-interface IUniswapV2Router01 /*is IUniswapV2Library*/ {
-    function WETH() external view returns (address);
+interface IUniswapV2Router02 {
     function factory() external view returns (IUniswapV2Factory);
     function swapExactTokensForTokens(
         uint amountIn,

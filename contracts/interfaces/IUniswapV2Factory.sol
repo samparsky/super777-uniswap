@@ -1,4 +1,3 @@
-  
 // SPDX-License-Identifier: GNU
 pragma solidity >=0.5.0;
 
