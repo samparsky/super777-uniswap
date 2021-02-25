@@ -13,9 +13,9 @@ contract TestUniswapRouter is IUniswapV2Router02 {
 
   IUniswapV2Factory public _factory;
 
-  constructor() {
+  constructor(address _weth) {
     _factory = IUniswapV2Factory(new TestUniswapFactory());
-    weth = address(new WETH());
+    weth = _weth;
   }
 
   receive() external payable {}

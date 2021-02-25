@@ -57,14 +57,14 @@ abstract contract UniswapSuperTokenAdapterBase is Receiver, ReverseENS {
         
         if (isUserSwapOutputTokenASuperToken) {
             to = address(this);
-            outputToken = ERC20(ISuperToken(userSwapOutputToken).getUnderlyingToken());
+            outputToken = ERC20(swapOutputUnderlying(ISuperToken(userSwapOutputToken)));
         } else {
             to = from;
             outputToken = ERC20(userSwapOutputToken);
         }
 
         ISuperToken inputSuperToken = ISuperToken(address(_token));
-        ERC20 underlyingInputToken = ERC20(inputSuperToken.getUnderlyingToken());
+        ERC20 underlyingInputToken = ERC20(swapInputUnderlying(inputSuperToken));
 
         // downgrade amount
         downgrade(inputSuperToken, amount);
@@ -127,7 +127,8 @@ abstract contract UniswapSuperTokenAdapterBase is Receiver, ReverseENS {
 
     function upgradeTo(ISuperToken superToken, address to, uint256 amount) internal virtual;
     function downgrade(ISuperToken superToken, uint256 amount) internal virtual;
-    // function getUnderlyingToken(ISuperToken superToken) internal virtual returns(address);
+    function swapInputUnderlying(ISuperToken superToken) internal view virtual returns(address);
+    function swapOutputUnderlying(ISuperToken superToken) internal view virtual returns(address);
 
     function getAmountOut(
         uint256 amountIn,

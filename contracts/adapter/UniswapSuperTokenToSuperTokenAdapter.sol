@@ -13,4 +13,13 @@ contract UniswapSuperTokenToSuperTokenAdapter is UniswapSuperTokenAdapterBase {
     function downgrade(ISuperToken superToken, uint256 amount) internal override {
         superToken.downgrade(amount);
     }
+
+    function swapInputUnderlying(ISuperToken superToken) internal view override returns(address) {
+        return superToken.getUnderlyingToken();
+    }
+
+    function swapOutputUnderlying(ISuperToken superToken) internal view override returns(address) {
+        return superToken.getUnderlyingToken();
+    }
+
 }

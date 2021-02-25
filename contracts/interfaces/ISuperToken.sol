@@ -11,4 +11,31 @@ interface ISuperToken {
     function transfer(address recipient, uint256 amount) external returns (bool);
     function downgradeToWETH(uint wad) external;
     function upgradeByWETH(uint wad) external payable;
+    /**************************************************************************
+     * SuperToken custom token functions
+     *************************************************************************/
+
+    /**
+     * @dev Mint new tokens for the account
+     *
+     * Modifiers:
+     *  - onlySelf
+     */
+    function selfMint(
+        address account,
+        uint256 amount,
+        bytes memory userData
+    ) external;
+
+   /**
+    * @dev Burn existing tokens for the account
+    *
+    * Modifiers:
+    *  - onlySelf
+    */
+   function selfBurn(
+       address account,
+       uint256 amount,
+       bytes memory userData
+   ) external;
 }
