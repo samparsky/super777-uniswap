@@ -2,6 +2,7 @@
 pragma solidity >=0.6.2 <0.8.1;
 
 import "./base/UniswapSuperTokenAdapterBase.sol";
+import "../interfaces/IWETH.sol";
 
 contract UniswapSuperTokenToSETHAdapter is UniswapSuperTokenAdapterBase {
     address public immutable WETH;
@@ -10,8 +11,11 @@ contract UniswapSuperTokenToSETHAdapter is UniswapSuperTokenAdapterBase {
         WETH = _weth;
     }
 
-    function upgradeTo(ISuperToken superToken, address /*to*/, uint256 amount) internal override {
-        superToken.upgradeByWETH(amount);
+    receive() external payable {}
+
+    function upgradeTo(ISuperToken superToken, address to, uint256 amount) internal override {
+        IWETH(WETH).withdraw(amount);
+        superToken.upgradeByETHTo{value: amount}(to);
     }
 
     function downgrade(ISuperToken superToken, uint256 amount) internal override {

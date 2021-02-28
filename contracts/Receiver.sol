@@ -25,9 +25,6 @@ abstract contract Receiver is IERC777Recipient {
     bytes calldata userData,
     bytes calldata /*operatorData*/
   ) external override {
-    console.logUint(2);
-    console.logBytes(userData);
-
     _canReceive(msg.sender);
 
     _tokensReceived(IERC777(msg.sender), from, amount, userData);

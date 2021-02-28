@@ -2,9 +2,9 @@
 pragma solidity >=0.6.2 <0.8.1;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "../../ens/ReverseENS.sol";
 import "../../Receiver.sol";
 import "../../interfaces/IUniswapV2Router02.sol";
 import "../../interfaces/ISuperToken.sol";
@@ -13,29 +13,40 @@ import "../../interfaces/IUniswapV2Pair.sol";
 import "hardhat/console.sol";
 
 
-abstract contract UniswapSuperTokenAdapterBase is Receiver, ReverseENS {
+abstract contract UniswapSuperTokenAdapterBase is Receiver {
     using SafeMath for uint256;
+    using SafeERC20 for ERC20;
 
-    IUniswapV2Factory public immutable uniswapFactory;
-    bytes32 constant UUID = keccak256("org.superfluid-finance.contracts.SuperToken.implementation");
+    IUniswapV2Router02 public immutable uniswapRouter;
+    bytes32 public constant UUID = keccak256("org.superfluid-finance.contracts.SuperToken.implementation");
+
+    event SwapComplete(
+        address indexed from,
+        address outputToken,
+        uint256 amount
+    );
 
     constructor(IUniswapV2Router02 _uniswapRouter) {
-        uniswapFactory = _uniswapRouter.factory();
+        uniswapRouter = _uniswapRouter;
     }
 
     /**
     *
     *
-    Example: Assume this is a fUSDC output Uniswap contract
-        If fDAIx is sent to this, it will downgrade it to fDAI
-        interact with the fDAI/fUSDC uniswap pool & it will swap to fUSDC
-        upgrade fUSDC to fUSDx then transfer fUSDCx to the `from` address
+    * @notice 
+        If DAIx is sent to this, it will downgrade it tofDAI
+        interact with the DAI/USDC uniswap pool & it will swap to USDC
+        upgrade USDC to USDCx then transfer USDCx to the `from` address
+    * @param _token ERC777 token being transferred
+    * @param from Address transferring the tokens
+    * @param amount Amount being transferred
+    * @param userData userData ABI encoded bytes value of (outputToken, minimumOutputAMount, trade deadline)
     */
     function _tokensReceived(
         IERC777 _token,
         address from,
         uint256 amount,
-        bytes calldata data
+        bytes calldata userData
     ) internal override {
         address userSwapOutputToken;
         uint256 userMinSwapOutputAmount;
@@ -44,11 +55,11 @@ abstract contract UniswapSuperTokenAdapterBase is Receiver, ReverseENS {
             userSwapOutputToken,
             userMinSwapOutputAmount,
             userTradeDeadline
-        ) = abi.decode(data, (address, uint256, uint256));
+        ) = abi.decode(userData, (address, uint256, uint256));
 
         require(userSwapOutputToken != address(0), "invalid output token address");
         require(userMinSwapOutputAmount != 0, "invalid output amount");
-        require(userTradeDeadline != 0 && block.timestamp <= userTradeDeadline, "invalid deadline");
+        require(userTradeDeadline != 0, "invalid deadline");
 
         bool isUserSwapOutputTokenASuperToken = isSuperToken(ISuperToken(userSwapOutputToken));
         
@@ -62,84 +73,59 @@ abstract contract UniswapSuperTokenAdapterBase is Receiver, ReverseENS {
             to = from;
             outputToken = ERC20(userSwapOutputToken);
         }
-
-        ISuperToken inputSuperToken = ISuperToken(address(_token));
-        ERC20 underlyingInputToken = ERC20(swapInputUnderlying(inputSuperToken));
+    
+        ERC20 underlyingInputToken = ERC20(swapInputUnderlying(ISuperToken(address(_token))));
 
         // downgrade amount
-        downgrade(inputSuperToken, amount);
+        downgrade(ISuperToken(address(_token)), amount);
+        
+        address[] memory path = new address[](2);
+        path[0] = address(underlyingInputToken);
+        path[1] = address(outputToken);
 
-        uint swapOutputAmount = executeSwap(
-            address(underlyingInputToken),
-            address(outputToken),
+        // approve the router to spend
+        underlyingInputToken.safeIncreaseAllowance(address(uniswapRouter), amount);
+
+        uint[] memory amounts = uniswapRouter.swapExactTokensForTokens(
             amount,
             userMinSwapOutputAmount,
-            to
+            path,
+            to,
+            userTradeDeadline
         );
 
-        require(swapOutputAmount > 0, "NO_PAIR");
+        uint swapOutputAmount = amounts[1];
 
         if (isUserSwapOutputTokenASuperToken) {
-            outputToken.approve(userSwapOutputToken, swapOutputAmount);
+            outputToken.safeIncreaseAllowance(userSwapOutputToken, swapOutputAmount);
             upgradeTo(ISuperToken(userSwapOutputToken), from, swapOutputAmount);
         }
+
+        emit SwapComplete(from, userSwapOutputToken, swapOutputAmount);
     }
 
-    function executeSwap(
-        address input,
-        address out,
-        uint256 swapAmount,
-        uint256 minSwapOutputAmount,
-        address to
-    ) internal returns (uint256 outputAmount) {
-        IUniswapV2Pair pair =
-            IUniswapV2Pair(uniswapFactory.getPair(input, out));
-
-        if (address(pair) == address(0)) {
-            return 0;
-        }
-
-        address token0 = address(pair.token0());
-
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
-        (uint256 reserveIn, uint256 reserveOut) =
-            input == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
-
-        outputAmount = getAmountOut(
-            swapAmount,
-            reserveIn,
-            reserveOut
-        );
-
-        require(outputAmount >= minSwapOutputAmount, "INSUFFICIENT_OUTPUT_AMOUNT");
-
-        if (swapAmount > 0) {
-            TransferHelper.safeTransfer(input, address(pair), swapAmount);
-        }
-
-        (uint256 amount0Out, uint256 amount1Out) =
-            input == token0
-                ? (uint256(0), outputAmount)
-                : (outputAmount, uint256(0));
-
-        pair.swap(amount0Out, amount1Out, to, "");
-    }
-
+    /**
+    * @param superToken the super token to upgrade to
+    * @param to the address to send the upgraded tokens to
+    * @param amount amount of tokens to upgrade to super tokens
+     */
     function upgradeTo(ISuperToken superToken, address to, uint256 amount) internal virtual;
-    function downgrade(ISuperToken superToken, uint256 amount) internal virtual;
-    function swapInputUnderlying(ISuperToken superToken) internal view virtual returns(address);
-    function swapOutputUnderlying(ISuperToken superToken) internal view virtual returns(address);
 
-    function getAmountOut(
-        uint256 amountIn,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) internal pure returns (uint256 amountOut) {
-        uint256 amountInWithFee = amountIn.mul(997);
-        uint256 numerator = amountInWithFee.mul(reserveOut);
-        uint256 denominator = reserveIn.mul(1000).add(amountInWithFee);
-        amountOut = numerator / denominator;
-    }
+    /**
+    * @param superToken the super token to downgrade from 
+    * @param amount amount of tokens to downgrade
+     */
+    function downgrade(ISuperToken superToken, uint256 amount) internal virtual;
+
+    /**
+    * @param superToken the super token get underlying from
+    */
+    function swapInputUnderlying(ISuperToken superToken) internal view virtual returns(address);
+
+    /**
+    * @param superToken the super token get underlying from
+    */
+    function swapOutputUnderlying(ISuperToken superToken) internal view virtual returns(address);
 
     function isSuperToken(ISuperToken token) internal view returns (bool) {
         try token.proxiableUUID() returns (bytes32 _uuid) {

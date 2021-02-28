@@ -3,7 +3,7 @@ pragma solidity >=0.6.2 <0.8.1;
 
 import "./base/UniswapSuperTokenAdapterBase.sol";
 
-contract UniswapSETHToSuperTokenAdapter is UniswapSuperTokenAdapterBase {
+contract UniswapSETHToTokenAdapter is UniswapSuperTokenAdapterBase {
     address public immutable WETH;
 
     constructor(IUniswapV2Router02 _uniswapRouter, address _weth) UniswapSuperTokenAdapterBase(_uniswapRouter) {

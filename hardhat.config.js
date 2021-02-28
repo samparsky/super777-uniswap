@@ -12,7 +12,9 @@ require('hardhat-deploy');
 
 module.exports = {
   networks: {
-    hardhat: {},
+    hardhat: {
+      // loggingEnabled: true,
+    },
     // local: {
     //   url: 'http://localhost:8545',
     // },

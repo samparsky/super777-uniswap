@@ -3,7 +3,7 @@ pragma solidity >=0.6.2 <0.8.1;
 
 import "./base/UniswapSuperTokenAdapterBase.sol";
 
-contract UniswapSuperTokenToSuperTokenAdapter is UniswapSuperTokenAdapterBase {
+contract UniswapSuperTokenToTokenAdapter is UniswapSuperTokenAdapterBase {
     constructor(IUniswapV2Router02 _uniswapRouter) UniswapSuperTokenAdapterBase(_uniswapRouter) {}
 
     function upgradeTo(ISuperToken superToken, address to, uint256 amount) internal override {
@@ -21,5 +21,4 @@ contract UniswapSuperTokenToSuperTokenAdapter is UniswapSuperTokenAdapterBase {
     function swapOutputUnderlying(ISuperToken superToken) internal view override returns(address) {
         return superToken.getUnderlyingToken();
     }
-
 }

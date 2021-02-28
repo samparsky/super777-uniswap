@@ -1,20 +1,19 @@
-const { singletons } = require('@openzeppelin/test-helpers');
+/* global describe,it,web3,before,beforeEach */
+
+const { singletons, expectEvent } = require('@openzeppelin/test-helpers');
 const SuperfluidSDK = require('@superfluid-finance/js-sdk');
 const deployTestToken = require('@superfluid-finance/ethereum-contracts/scripts/deploy-test-token');
 const deploySuperToken = require('@superfluid-finance/ethereum-contracts/scripts/deploy-super-token');
 const deployFramework = require('@superfluid-finance/ethereum-contracts/scripts/deploy-framework');
 
-const { expect } = require('chai');
-const abi = require('ethereumjs-abi');
 const { assert, artifacts } = require('hardhat');
 
 const eth = (num) => web3.utils.toWei(num.toString(), 'ether');
 const IUniswapV2Factory = artifacts.require('IUniswapV2Factory');
 const TestUniswapPair = artifacts.require('TestUniswapPair');
-const MockERC20 = artifacts.require('MockToken');
 const TestUniswapRouter = artifacts.require('TestUniswapRouter');
-const UniswapSuperTokenAdapter = artifacts.require('UniswapSuperTokenToSuperTokenAdapter');
-const UniswapSETHToSuperTokenAdapter = artifacts.require('UniswapSETHToSuperTokenAdapter');
+const UniswapSuperTokenAdapter = artifacts.require('UniswapSuperTokenToTokenAdapter');
+const UniswapSETHToTokenAdapter = artifacts.require('UniswapSETHToTokenAdapter');
 const UniswapSuperTokenToSETHAdapter = artifacts.require('UniswapSuperTokenToSETHAdapter');
 
 const WETH = artifacts.require('WETH');
@@ -44,7 +43,6 @@ describe('UniswapSuperTokenAdapter', () => {
   let superFluidFramework;
   let fUsdc;
   let fDai;
-  let fETH;
   let fUsdcX; // super usdc
   let fDaiX; // super dai
   let fETHx; // super eth
@@ -53,13 +51,11 @@ describe('UniswapSuperTokenAdapter', () => {
   async function setupUniswap(token1, token2) {
     const uniswapRouter = await TestUniswapRouter.new(weth.address);
 
-    // let token1Amt = '1';
-    // let token2Amt = '1'
-    // if (!token2) {
-    //   token2 = await IWETH.at(await uniswapRouter.WETH());
-    //   await token2.deposit({ value: eth(1) });
-    //   token2Amt = '1';
-    // }
+    if (token2.address === weth.address) {
+      // eslint-disable-next-line no-param-reassign
+      token2 = await WETH.at(await uniswapRouter.WETH());
+      await token2.deposit({ value: eth(1000) });
+    }
 
     const uniswapFactory = await IUniswapV2Factory.at(await uniswapRouter.factory());
     await uniswapFactory.createPair(token1.address, token2.address);
@@ -91,6 +87,11 @@ describe('UniswapSuperTokenAdapter', () => {
   });
 
   beforeEach(async () => {
+    await deploySuperToken(errorHandler, [':', 'ETH'], {
+      web3,
+      weth: weth.address,
+    });
+
     await deployTestToken(errorHandler, [':', 'fDAI'], {
       web3,
     });
@@ -107,10 +108,6 @@ describe('UniswapSuperTokenAdapter', () => {
       web3,
     });
 
-    await deploySuperToken(errorHandler, [':', 'ETH'], {
-      web3,
-    });
-
     superFluidFramework = new SuperfluidSDK.Framework({
       web3,
       version: 'test',
@@ -124,7 +121,6 @@ describe('UniswapSuperTokenAdapter', () => {
 
     fDai = await superFluidFramework.contracts.TestToken.at(fDaiAddress);
     fUsdc = await superFluidFramework.contracts.TestToken.at(fUSDCAddress);
-    // fETH = await
 
     // defaultSender
     await fDai.mint(defaultSender, eth(100000));
@@ -132,7 +128,9 @@ describe('UniswapSuperTokenAdapter', () => {
 
     fDaiX = superFluidFramework.tokens.fDAIx;
     fUsdcX = superFluidFramework.tokens.fUSDCx;
-    // fETHx = superFluidFramework.tokens.ETHx;
+
+    const fETHxAddress = await superFluidFramework.resolver.get('supertokens.test.ETHx');
+    fETHx = await superFluidFramework.contracts.ISETH.at(fETHxAddress);
   });
 
   it('Should fail with invalid userData', async () => {
@@ -154,26 +152,6 @@ describe('UniswapSuperTokenAdapter', () => {
     );
   });
 
-  it('Should fail with invalid uniswap pair', async () => {
-    const mockToken = await MockERC20.new();
-    const { uniswapRouter } = await setupUniswap(fDai, fUsdc);
-    const uniswapSuperTokenAdapter = await UniswapSuperTokenAdapter.new(uniswapRouter.address);
-    await fUsdc.approve(fUsdcX.address, eth(100));
-    await fUsdcX.upgrade(eth(100)); // mint super fUSDC to defaultSender
-
-    // encode calldata
-    const userdata = web3.eth.abi.encodeParameters(
-      ['uint256', 'uint256', 'uint256'],
-      [`${mockToken.address}`, `${eth(9)}`, `${Math.floor(Date.now() / 1000) + 36000}`],
-    );
-
-    // transfer & swap with uniswapSuperTokenAdapter
-    await expectEVMError(
-      fUsdcX.send(uniswapSuperTokenAdapter.address, eth(10), userdata),
-      'NO_PAIR',
-    );
-  });
-
   it('Should swap superToken for superToken', async () => {
     const { uniswapRouter } = await setupUniswap(fDai, fUsdc);
     const uniswapSuperTokenAdapter = await UniswapSuperTokenAdapter.new(uniswapRouter.address);
@@ -188,16 +166,17 @@ describe('UniswapSuperTokenAdapter', () => {
 
     const beforeBalance = ((await fDaiX.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
     // transfer & swap with uniswapSuperTokenAdapter
-    await fUsdcX.send(uniswapSuperTokenAdapter.address, eth(10), userdata);
+    const tx = await fUsdcX.send(uniswapSuperTokenAdapter.address, eth(10), userdata);
+    await expectEvent.inTransaction(tx.tx, UniswapSuperTokenAdapter, 'SwapComplete');
+
     // check balance after
     const afterBalance = ((await fDaiX.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
-
     const swapOutputAmount = 9;
     assert.equal((beforeBalance + swapOutputAmount), afterBalance, 'invalid swap');
   });
 
   it('Should swap superToken for token', async () => {
-    const { uniswapFactory, uniswapRouter, pair } = await setupUniswap(fDai, fUsdc);
+    const { uniswapRouter } = await setupUniswap(fDai, fUsdc);
 
     const uniswapSuperTokenAdapter = await UniswapSuperTokenAdapter.new(uniswapRouter.address);
     const userdata = web3.eth.abi.encodeParameters(
@@ -209,19 +188,82 @@ describe('UniswapSuperTokenAdapter', () => {
     await fUsdc.approve(fUsdcX.address, eth(100));
     await fUsdcX.upgrade(eth(100));
     // transfer to uniswapSuperTokenAdapter
-    await fUsdcX.send(uniswapSuperTokenAdapter.address, eth(10), userdata);
+    const tx = await fUsdcX.send(uniswapSuperTokenAdapter.address, eth(10), userdata);
+    await expectEvent.inTransaction(tx.tx, UniswapSuperTokenAdapter, 'SwapComplete');
 
     const afterBalance = ((await fDai.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
     const swapOutputAmount = 9;
     assert.equal((beforeBalance + swapOutputAmount), afterBalance, 'invalid swap');
   });
 
-  // it('Should swap superToken for SETH', async () => {
-  //   const { uniswapRouter } = await setupUniswap(fDai, fUsdc)
-  // });
+  it('Should swap superToken for SETH', async () => {
+    const { uniswapRouter } = await setupUniswap(fUsdc, weth);
+    const uniswapSuperTokenAdapter = await UniswapSuperTokenToSETHAdapter.new(
+      uniswapRouter.address,
+      weth.address,
+    );
+    const userdata = web3.eth.abi.encodeParameters(
+      ['address', 'uint256', 'uint256'],
+      [`${fETHx.address}`, `${eth(9)}`, `${Math.floor(Date.now() / 1000) + 36000}`],
+    );
 
-  // it('Should swap SETH for superToken', async () => {
-  //   const { uniswapRouter } = await setupUniswap(fDai, fUsdc)
-  // });
+    const beforeBalance = ((await fETHx.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
 
+    // transfer & swap with uniswapSuperTokenAdapter
+    await fUsdc.approve(fUsdcX.address, eth(100));
+    await fUsdcX.upgrade(eth(100));
+    const tx = await fUsdcX.send(uniswapSuperTokenAdapter.address, eth(10), userdata);
+    await expectEvent.inTransaction(tx.tx, UniswapSuperTokenAdapter, 'SwapComplete');
+
+    const swapOutputAmount = 9;
+    const afterBalance = ((await fETHx.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
+    assert.equal((beforeBalance + swapOutputAmount), afterBalance, 'invalid swap');
+  });
+
+  it('Should swap SETH for superToken', async () => {
+    const { uniswapRouter } = await setupUniswap(fUsdc, weth);
+    const uniswapSuperTokenAdapter = await UniswapSETHToTokenAdapter.new(
+      uniswapRouter.address,
+      weth.address,
+    );
+    const userdata = web3.eth.abi.encodeParameters(
+      ['address', 'uint256', 'uint256'],
+      [`${fUsdcX.address}`, `${eth(9)}`, `${Math.floor(Date.now() / 1000) + 36000}`],
+    );
+
+    const beforeBalance = ((await fUsdcX.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
+
+    await fETHx.upgradeByETH({ value: eth(100) });
+
+    const tx = await fETHx.send(uniswapSuperTokenAdapter.address, eth(10), userdata);
+    await expectEvent.inTransaction(tx.tx, UniswapSuperTokenAdapter, 'SwapComplete');
+
+    const swapOutputAmount = 9;
+
+    const afterBalance = ((await fUsdcX.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
+    assert.equal((beforeBalance + swapOutputAmount), afterBalance, 'invalid swap');
+  });
+
+  it('Should swap SETH for token', async () => {
+    const { uniswapRouter } = await setupUniswap(fUsdc, weth);
+    const uniswapSuperTokenAdapter = await UniswapSETHToTokenAdapter.new(
+      uniswapRouter.address,
+      weth.address,
+    );
+    const userdata = web3.eth.abi.encodeParameters(
+      ['address', 'uint256', 'uint256'],
+      [`${fUsdc.address}`, `${eth(9)}`, `${Math.floor(Date.now() / 1000) + 36000}`],
+    );
+
+    const beforeBalance = ((await fUsdc.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
+
+    await fETHx.upgradeByETH({ value: eth(100) });
+    // send it to uniswapSuperTokenAdapter
+    const tx = await fETHx.send(uniswapSuperTokenAdapter.address, eth(10), userdata);
+    await expectEvent.inTransaction(tx.tx, UniswapSuperTokenAdapter, 'SwapComplete');
+
+    const afterBalance = ((await fUsdc.balanceOf(defaultSender)).div(toBN(eth(1)))).toNumber();
+    const swapOutputAmount = 9;
+    assert.equal((beforeBalance + swapOutputAmount), afterBalance, 'invalid swap');
+  });
 });

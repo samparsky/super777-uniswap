@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity >=0.6.0 <0.8.1;
+import "hardhat/console.sol";
 
 contract WETH {
     string public name     = "Wrapped Ether";
@@ -63,10 +64,10 @@ contract WETH {
         public
         returns (bool)
     {
-        require(balanceOf[src] >= wad);
+        require(balanceOf[src] >= wad, 'invalid amount');
 
         if (src != msg.sender && allowance[src][msg.sender] != uint(-1)) {
-            require(allowance[src][msg.sender] >= wad);
+            require(allowance[src][msg.sender] >= wad, 'invalid required');
             allowance[src][msg.sender] -= wad;
         }
 
@@ -74,7 +75,6 @@ contract WETH {
         balanceOf[dst] += wad;
 
         emit Transfer(src, dst, wad);
-
         return true;
     }
 }

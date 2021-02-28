@@ -11,6 +11,9 @@ interface ISuperToken {
     function transfer(address recipient, uint256 amount) external returns (bool);
     function downgradeToWETH(uint wad) external;
     function upgradeByWETH(uint wad) external payable;
+    function upgradeByETH() external payable;
+    function upgradeByETHTo(address to) external payable;
+
     /**************************************************************************
      * SuperToken custom token functions
      *************************************************************************/

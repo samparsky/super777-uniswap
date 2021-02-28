@@ -4,7 +4,7 @@ pragma solidity >=0.6.2 <0.8.1;
 import './IUniswapV2Factory.sol';
 
 interface IUniswapV2Router02 {
-    function factory() external view returns (IUniswapV2Factory);
+    function factory() external view returns (address);
     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
