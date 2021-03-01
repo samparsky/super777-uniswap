@@ -22,6 +22,7 @@ abstract contract UniswapSuperTokenAdapterBase is Receiver {
 
     event SwapComplete(
         address indexed from,
+        address inputToken,
         address outputToken,
         uint256 amount
     );
@@ -34,8 +35,8 @@ abstract contract UniswapSuperTokenAdapterBase is Receiver {
     *
     *
     * @notice 
-        If DAIx is sent to this, it will downgrade it tofDAI
-        interact with the DAI/USDC uniswap pool & it will swap to USDC
+        If DAIx is sent with USDCx specified as output token,the contracts downgrades DAIx to DAI
+        interacts with the DAI/USDC uniswap pair & swap DAI to USDC
         upgrade USDC to USDCx then transfer USDCx to the `from` address
     * @param _token ERC777 token being transferred
     * @param from Address transferring the tokens
@@ -101,7 +102,12 @@ abstract contract UniswapSuperTokenAdapterBase is Receiver {
             upgradeTo(ISuperToken(userSwapOutputToken), from, swapOutputAmount);
         }
 
-        emit SwapComplete(from, userSwapOutputToken, swapOutputAmount);
+        emit SwapComplete(
+            from,
+            address(_token),
+            userSwapOutputToken,
+            swapOutputAmount
+        );
     }
 
     /**
