@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity >=0.6.0 <0.8.1;
+pragma solidity 0.7.4;
 import "hardhat/console.sol";
 
 contract WETH {

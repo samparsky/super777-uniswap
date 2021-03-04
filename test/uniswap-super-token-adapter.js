@@ -13,8 +13,8 @@ const IUniswapV2Factory = artifacts.require('IUniswapV2Factory');
 const TestUniswapPair = artifacts.require('TestUniswapPair');
 const TestUniswapRouter = artifacts.require('TestUniswapRouter');
 const UniswapSuperTokenAdapter = artifacts.require('UniswapSuperTokenToTokenAdapter');
-const UniswapSETHToTokenAdapter = artifacts.require('UniswapSETHToTokenAdapter');
-const UniswapSuperTokenToSETHAdapter = artifacts.require('UniswapSuperTokenToSETHAdapter');
+// const UniswapSETHToTokenAdapter = artifacts.require('UniswapSETHToTokenAdapter');
+// const UniswapSuperTokenToSETHAdapter = artifacts.require('UniswapSuperTokenToSETHAdapter');
 
 const WETH = artifacts.require('WETH');
 
@@ -198,9 +198,8 @@ describe('UniswapSuperTokenAdapter', () => {
 
   it('Should swap superToken for SETH', async () => {
     const { uniswapRouter } = await setupUniswap(fUsdc, weth);
-    const uniswapSuperTokenAdapter = await UniswapSuperTokenToSETHAdapter.new(
+    const uniswapSuperTokenAdapter = await UniswapSuperTokenAdapter.new(
       uniswapRouter.address,
-      weth.address,
     );
     const userdata = web3.eth.abi.encodeParameters(
       ['address', 'uint256', 'uint256'],
@@ -222,9 +221,8 @@ describe('UniswapSuperTokenAdapter', () => {
 
   it('Should swap SETH for superToken', async () => {
     const { uniswapRouter } = await setupUniswap(fUsdc, weth);
-    const uniswapSuperTokenAdapter = await UniswapSETHToTokenAdapter.new(
+    const uniswapSuperTokenAdapter = await UniswapSuperTokenAdapter.new(
       uniswapRouter.address,
-      weth.address,
     );
     const userdata = web3.eth.abi.encodeParameters(
       ['address', 'uint256', 'uint256'],
@@ -246,9 +244,8 @@ describe('UniswapSuperTokenAdapter', () => {
 
   it('Should swap SETH for token', async () => {
     const { uniswapRouter } = await setupUniswap(fUsdc, weth);
-    const uniswapSuperTokenAdapter = await UniswapSETHToTokenAdapter.new(
+    const uniswapSuperTokenAdapter = await UniswapSuperTokenAdapter.new(
       uniswapRouter.address,
-      weth.address,
     );
     const userdata = web3.eth.abi.encodeParameters(
       ['address', 'uint256', 'uint256'],

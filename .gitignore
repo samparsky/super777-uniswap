@@ -110,3 +110,4 @@ cache
 artifacts
 build
 .npmrc
+check
