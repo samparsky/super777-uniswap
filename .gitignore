@@ -111,3 +111,4 @@ artifacts
 build
 .npmrc
 check
+deployments

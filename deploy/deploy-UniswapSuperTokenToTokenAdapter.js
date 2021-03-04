@@ -4,7 +4,7 @@ const constants = require('../scripts/constants');
 
 module.exports = async function ({ getNamedAccounts, deployments, network }) {
   const { deploy } = deployments;
-  const deployer = await getNamedAccounts();
+  const { deployer } = await getNamedAccounts();
 
   const router = process.env.ROUTER || constants.ROUTER[network];
   if (!router) {

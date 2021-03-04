@@ -244,6 +244,7 @@ describe('UniswapSuperTokenAdapter', () => {
 
   it('Should swap SETH for token', async () => {
     const { uniswapRouter } = await setupUniswap(fUsdc, weth);
+    console.log(`uniswapRouter`, uniswapRouter.address)
     const uniswapSuperTokenAdapter = await UniswapSuperTokenAdapter.new(
       uniswapRouter.address,
     );

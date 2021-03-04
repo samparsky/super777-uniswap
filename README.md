@@ -23,7 +23,7 @@ the received DAI to DAIx then transfers it to the user all in one transaction
 ```sh
 $ export WETH=
 $ export ROUTER=
-$ npx hardhat --network [goerli] deploy
+$ npx hardhat --network [goerli|ropsten] deploy
 
 ```
 

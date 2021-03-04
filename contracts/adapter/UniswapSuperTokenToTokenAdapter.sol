@@ -10,8 +10,6 @@ import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/ISuperToken.sol";
 import "../interfaces/IUniswapV2Factory.sol";
 import "../interfaces/IUniswapV2Pair.sol";
-import "hardhat/console.sol";
-
 
 contract UniswapSuperTokenToTokenAdapter is Receiver {
     using SafeMath for uint256;
