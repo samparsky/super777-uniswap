@@ -4,7 +4,7 @@ pragma solidity 0.7.4;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-]import "../Receiver.sol";
+import "../Receiver.sol";
 import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/ISuperToken.sol";
 import "../interfaces/IUniswapV2Factory.sol";

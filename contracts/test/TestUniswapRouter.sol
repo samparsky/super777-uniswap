@@ -22,10 +22,6 @@ contract TestUniswapRouter is IUniswapV2Router02 {
 
   receive() external payable {}
 
-  function WETH() external view returns (address) {
-    return weth;
-  }
-
   modifier ensure(uint deadline) {
     require(deadline >= block.timestamp, 'UniswapV2Router: EXPIRED');
     _;
